@@ -4,11 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use Illuminate\Console\Command;
-use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Support\Facades\Hash;
-use PharIo\Manifest\Email;
-
-use function Laravel\Prompts\table;
 
 class MakeUserCommand extends Command
 {
@@ -32,13 +28,13 @@ class MakeUserCommand extends Command
     public function handle()
     {
         $credentials = [
-            'email' => $this->ask("Enter email"),
+            'login' => $this->ask("Enter login"),
             'password' => $this->secret('Enter password'),
         ];
 
         $validator = validator($credentials, [
+            'login' => 'required|string|min:3|max:64',
             'password' => 'required|string|min:8',
-            'email' => 'required|email',
         ]);
 
         if ($validator->fails()) {
@@ -50,8 +46,8 @@ class MakeUserCommand extends Command
             return false;
         }
 
-        $user = User::query()->create([
-            'email' => $credentials['email'],
+        User::query()->create([
+            'login' => $credentials['login'],
             'password' => Hash::make($credentials['password']),
         ]);
 
