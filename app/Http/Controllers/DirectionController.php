@@ -13,6 +13,6 @@ class DirectionController extends Controller
             'bidCurrency',
             'askCurrency',
             'stockMarket',
-        ])->get();
+        ])->limit(50)->get();
     }
 }
