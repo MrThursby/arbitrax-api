@@ -65,6 +65,9 @@ class RatesUpdateCommand extends Command
                 $this->saveDirections($directions, 500);
     
                 // Cache::delete('bundles');
+
+                unset($directions);
+                gc_collect_cycles();
             });
 
             $this->info("\nDirections updated. Working time: $duration\n", );
