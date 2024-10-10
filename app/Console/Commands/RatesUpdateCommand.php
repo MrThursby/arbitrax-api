@@ -21,26 +21,26 @@ use Swoole\Coroutine\WaitGroup;
 
 class RatesUpdateCommand extends Command
 {
-    protected $signature = 'rates:update';
+    protected $signature = 'rates:update {--once}';
     protected $description = 'Refetch rates from stock markets';
+    
+    private $parsers = [
+        BinanceParser::class,
+        BitgetParser::class,
+        GarantexParser::class,
+        HuobiParser::class,
+        OkxParser::class,
+    ];
 
     public function handle()
     {
-        while (true) {
+        do {
             [, $duration] = Benchmark::value(function () {
                 $directions = [];
     
                 $this->comment('Start corutine and async parsers');
-                Coroutine\run(function () use (&$directions) {
-                    $parsers = [
-                        BinanceParser::class,
-                        BitgetParser::class,
-                        GarantexParser::class,
-                        HuobiParser::class,
-                        OkxParser::class,
-                    ];
-            
-                    foreach ($parsers as $parserClass) {        
+                Coroutine\run(function () use (&$directions) {            
+                    foreach ($this->parsers as $parserClass) {        
                         Coroutine::create(function () use ($parserClass, &$directions) {
                             $directions[] = (new $parserClass)->handle();
                         });
@@ -53,16 +53,16 @@ class RatesUpdateCommand extends Command
                 $directions = $this->castCurrencyNames($directions);
     
                 $this->comment('Save stockmarkets');
-                $this->saveStockMarkets($directions, 500);
+                $this->saveStockMarkets($directions, 3000);
                 
                 $this->comment('Save currencies');
-                $this->saveCurrencies($directions, 500);
+                $this->saveCurrencies($directions, 3000);
                 
                 $this->comment('Remove old directions');
                 $this->clearOldDirections();
                 
                 $this->comment('Directions saved');
-                $this->saveDirections($directions, 500);
+                $this->saveDirections($directions, 3000);
     
                 // Cache::delete('bundles');
 
@@ -71,7 +71,7 @@ class RatesUpdateCommand extends Command
             });
 
             $this->info("\nDirections updated. Working time: $duration\n", );
-        }
+        } while (!$this->option('once'));
     }
 
     private function castCurrencyNames($directions) {
