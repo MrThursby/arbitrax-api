@@ -27,42 +27,43 @@ class RatesUpdateCommand extends Command
     public function handle()
     {
         Benchmark::dd(function () {
-            Coroutine\run(function () {
-                $waitGroup = new WaitGroup();
-        
+            $directions = [];
+
+            $this->info('Start corutine and async parsers');
+            Coroutine\run(function () use (&$directions) {
                 $parsers = [
                     BinanceParser::class,
                     BitgetParser::class,
                     GarantexParser::class,
-                    HuobiParser::class,
-                    OkxParser::class,
+                    // HuobiParser::class,
+                    // OkxParser::class,
                 ];
         
-                $results = [];
-        
-                foreach ($parsers as $parserClass) {
-                    $waitGroup->add();
-        
-                    Coroutine::create(function () use ($parserClass, &$results, $waitGroup) {
-                        $results[] = (new $parserClass)->handle();
-        
-                        $waitGroup->done(); 
+                foreach ($parsers as $parserClass) {        
+                    Coroutine::create(function () use ($parserClass, &$directions) {
+                        $directions[] = (new $parserClass)->handle();
                     });
                 }
-
-                $waitGroup->wait();
-
-                $results = Arr::flatten($results, 1);
-                $results = $this->filterNullPrice($results);
-                $results = $this->castCurrencyNames($results);
-
-                $this->saveStockMarkets($results);
-                $this->saveCurrencies($results);
-                $this->clearOldDirections();
-                $this->saveDirections($results);
-
-                Cache::set('bundles', null);
             });
+
+            $this->info('Prepare directions');
+            $directions = Arr::flatten($directions, 1);
+            $directions = $this->filterNullPrice($directions);
+            $directions = $this->castCurrencyNames($directions);
+
+            $this->info('Save stockmarkets');
+            $this->saveStockMarkets($directions, 500);
+            
+            $this->info('Save currencies');
+            $this->saveCurrencies($directions, 500);
+            
+            $this->info('Remove old directions');
+            $this->clearOldDirections();
+            
+            $this->info('Save new directions');
+            $this->saveDirections($directions, 500);
+
+            // Cache::set('bundles', null);
         });
     }
 
@@ -75,19 +76,27 @@ class RatesUpdateCommand extends Command
         return $directions;
     }
 
-    private function saveStockMarkets($directions) {
+    private function saveStockMarkets($directions, $chink_size) {
         $stockMarkets = Arr::pluck($directions, 'stock_market');
         $stockMarkets = array_unique($stockMarkets);
+
+        $now = now()->toDateTime();
         $stockMarkets = Arr::map($stockMarkets, fn ($stockMarket) => [ 
             'name' => $stockMarket, 
-            'refetched_at' => now(), // new UTCDateTime(now()->getTimestamp() * 1000)
+            'refetched_at' => $now, // new UTCDateTime(now()->getTimestamp() * 1000)
         ]);
+        
         $stockMarkets = array_values($stockMarkets);
 
-        return StockMarket::query()->upsert($stockMarkets, [ 'name' ], [ 'refetched_at' ]);
+        DB::transaction(function () use ($stockMarkets, $chink_size) {
+            $chunks = array_chunk($stockMarkets, $chink_size);
+            foreach ($chunks as $chunk) StockMarket::query()->upsert($chunk, [ 'name' ], [ 'refetched_at' ]);
+        });
+
+        return true;
     }
 
-    private function saveCurrencies($directions) {
+    private function saveCurrencies($directions, $chink_size) {
         $bid_currencies = Arr::pluck($directions, 'bid_currency');
         $ask_currencies = Arr::pluck($directions, 'ask_currency');
 
@@ -96,14 +105,19 @@ class RatesUpdateCommand extends Command
 
         $currencies = array_values($currencies);
 
-        return Currency::query()->upsert($currencies, [ 'name' ]);
+        DB::transaction(function () use ($currencies, $chink_size) {
+            $chunks = array_chunk($currencies, $chink_size);
+            foreach ($chunks as $chunk) Currency::query()->upsert($chunk, [ 'name' ]);
+        });
+
+        return true;
     }
 
     private function clearOldDirections() {
         Direction::query()->delete();
     }
 
-    private function saveDirections($directions) {
+    private function saveDirections($directions, $chink_size) {
         $currencies = Currency::query()->get()->keyBy('name');
         $stockMarkets = StockMarket::query()->get()->keyBy('name');
 
@@ -115,21 +129,16 @@ class RatesUpdateCommand extends Command
                 'buy_price'       => $direction['buy_price'],
                 'sell_price'      => $direction['sell_price'],
             ];
-            
-            if (
-                in_array('FUD', [$direction['ask_currency'], $direction['bid_currency']])
-                && in_array('USDT', [$direction['ask_currency'], $direction['bid_currency']])
-                && $direction['stock_market'] == 'Huobi'
-            ) dump($d, $direction['ask_currency']);
 
             return $d;
         });
 
-        dump(count($directions));
+        DB::transaction(function () use ($directions, $chink_size) {
+            $chunks = array_chunk($directions, $chink_size);
+            foreach ($chunks as $chunk) Direction::query()->insert($chunk, ['stock_market_id', 'ask_currency_id', 'bid_currency_id']);
+        });
 
-        // dump($directions);
-
-        return Direction::query()->upsert($directions, ['stock_market_id', 'ask_currency_id', 'bid_currency_id']);
+        return true;
     }
 
     private function filterNullPrice($directions) {
@@ -137,54 +146,4 @@ class RatesUpdateCommand extends Command
             array_filter($directions, fn ($direction) => $direction['buy_price'] != 0 && $direction['sell_price'] != 0)
         );
     }
-
-    // public function handle_old()
-    // {
-    //     while (true) {
-    //         $updaters = array_map(fn($updater) => new $updater, [
-    //             DirectionsUpdaterGarantex::class,
-    //             DirectionsUpdaterBinance::class,
-    //             DirectionsUpdaterOkx::class,
-    //             DirectionsUpdaterBitget::class,
-    //             DirectionsUpdaterHuobi::class,
-    //         ]);
-
-    //         $time = Benchmark::value(function () use ($updaters) {
-    //             $start = now();
-
-    //             $responses = Http::pool(function (Pool $pool) use ($updaters) {
-    //                 foreach ($updaters as $id => $updater) {                        
-    //                     $updater->marketsUrl && $pool->as('markets.' . $id)->get($updater->marketsUrl);
-    //                     $updater->ratesUrl && $pool->as('rates.' . $id)->get($updater->ratesUrl);
-    //                 }
-    //             });
-
-    //             dump("Responses: ". now()->diff($start));
-
-    //             // $start = now();
-
-    //             $directions = [];
-    //             foreach ($updaters as $id => $updater) {                
-    //                 $directions = array_merge($directions, $updater->update(
-    //                     Arr::get($responses, 'markets.' . $id)?->json(),
-    //                     Arr::get($responses, 'rates.' . $id)?->json(),
-    //                 ));
-    //             }
-
-    //             // dump("Update database: ". now()->diff($start));
-
-    //             // $start = now();
-    //             // $encodedDirections = array_map('json_encode', $directions);
-    //             // dump("Json endoe: ". now()->diff($start));
-
-    //             // Redis::delete('directions');
-    //             // Redis::rpush('directions', ...$encodedDirections);
-    //         });
-
-    //         dump($time[1]);
-    //     }
-
-    //     // bybit, mexc, bingX, gate, kucoin
-    //     // bitget, okx, huobi, 
-    // }
 }
