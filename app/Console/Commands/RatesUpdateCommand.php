@@ -61,7 +61,7 @@ class RatesUpdateCommand extends Command
                 $this->comment('Remove old directions');
                 $this->clearOldDirections();
                 
-                $this->comment('Directions saved');
+                $this->comment('Saved directions');
                 $this->saveDirections($directions, 3000);
     
                 // Cache::delete('bundles');
