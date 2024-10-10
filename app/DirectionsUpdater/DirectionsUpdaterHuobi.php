@@ -7,19 +7,22 @@ use App\Models\Currency;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\Response;
 
 class DirectionsUpdaterHuobi extends DirectionsUpdater
 {
     protected string $stockMarketName = 'Huobi';
+    public ?string $marketsUrl = 'https://api.huobi.pro/v2/settings/common/symbols';
+    public ?string $ratesUrl = 'https://api.huobi.pro/market/tickers';
 
-    protected function fetchMarkets()
+    protected function parseMarkets(array $markets)
     {
-        return Http::get('https://api.huobi.pro/v2/settings/common/symbols')->json()['data'];
+        return $markets['data'];
     }
 
-    protected function fetchRates()
+    protected function parseRates(array $rates)
     {
-        return Http::get('https://api.huobi.pro/market/tickers')->json()['data'];
+        return $rates['data'];
     }
 
     protected function createDirections($markets, $rates): array

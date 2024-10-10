@@ -2,16 +2,21 @@
 
 namespace App\DirectionsUpdater;
 
+use Redis;
 use App\Models\Currency;
 use App\Models\Direction;
 use App\Models\StockMarket;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Illuminate\Http\Client\Response;
 
 abstract class DirectionsUpdater
 {
     protected string $stockMarketName;
     protected StockMarket $stockMarket;
+
+    public ?string $marketsUrl;
+    public ?string $ratesUrl;
 
     public function __construct()
     {
@@ -19,15 +24,17 @@ abstract class DirectionsUpdater
             ->firstOrCreate(['name' => $this->stockMarketName]);
     }
 
-    public function update()
+    public function update($markets, $rates)
     {
-        $markets = $this->fetchMarkets();
-        $rates = $this->fetchRates();
+        $markets = $this->parseMarkets($markets);
+        $rates = $this->parseRates($rates);
 
         $directions = $this->createDirections($markets, $rates);
         $this->updateDirections($directions);
 
         $this->touchStockMarket();
+
+        return $directions;
     }
 
     public function isFiat($currencyName): bool
@@ -37,14 +44,14 @@ abstract class DirectionsUpdater
         return in_array($currencyName, $fiatNames);
     }
 
-    abstract protected function fetchMarkets();
-    abstract protected function fetchRates();
+    abstract protected function parseMarkets(array $markets);
+    abstract protected function parseRates(array $rates);
 
     abstract protected function createDirections($markets, $rates): array;
 
-    protected function updateDirections($directions) {
+    protected function updateDirections($directions) {        
         Direction::query()->where('stock_market_id', $this->stockMarket->id)->delete();
-        Direction::query()->upsert($directions, ['from_currency_id', 'to_currency_id']);
+        Direction::query()->insert($directions);
     }
 
     protected function getCurrencyModels($bidCurrencyName, $askCurrencyName): array {

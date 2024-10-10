@@ -4,17 +4,20 @@ namespace App\DirectionsUpdater;
 
 use App\DirectionsUpdater\DirectionsUpdater;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\Response;
 
 class DirectionsUpdaterOkx extends DirectionsUpdater
 {
     protected string $stockMarketName = 'OKX';
+    public ?string $marketsUrl = null;
+    public ?string $ratesUrl = 'https://www.okx.com/api/v5/market/tickers?instType=SPOT';
 
-    protected function fetchMarkets() {
+    protected function parseMarkets(?array $markets) {
         return null;
     }
 
-    protected function fetchRates() {
-        return Http::get('https://www.okx.com/api/v5/market/tickers?instType=SPOT')->json()['data'];
+    protected function parseRates(array $rates) {
+        return $rates['data'];
     }
 
     protected function createDirections($markets, $rates): array {

@@ -7,19 +7,22 @@ use App\Models\Currency;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\Response;
 
 class DirectionsUpdaterBinance extends DirectionsUpdater
 {
     protected string $stockMarketName = 'Binance';
+    public ?string $marketsUrl = 'https://api.binance.com/api/v3/exchangeInfo';
+    public ?string $ratesUrl = 'https://api.binance.com/api/v3/ticker/bookTicker';
 
-    protected function fetchMarkets()
+    protected function parseMarkets(array $markets)
     {
-        return Http::get('https://api.binance.com/api/v3/exchangeInfo')->json()['symbols'];
+        return $markets['symbols'];
     }
 
-    protected function fetchRates()
+    protected function parseRates(array $rates)
     {
-        return Http::get('https://api.binance.com/api/v3/ticker/bookTicker')->json();
+        return $rates;
     }
 
     protected function createDirections($markets, $rates): array

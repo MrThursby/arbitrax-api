@@ -26,45 +26,49 @@ class RatesUpdateCommand extends Command
 
     public function handle()
     {
-        Benchmark::dd(function () {
-            $directions = [];
-
-            $this->info('Start corutine and async parsers');
-            Coroutine\run(function () use (&$directions) {
-                $parsers = [
-                    BinanceParser::class,
-                    BitgetParser::class,
-                    GarantexParser::class,
-                    // HuobiParser::class,
-                    // OkxParser::class,
-                ];
-        
-                foreach ($parsers as $parserClass) {        
-                    Coroutine::create(function () use ($parserClass, &$directions) {
-                        $directions[] = (new $parserClass)->handle();
-                    });
-                }
+        while (true) {
+            [$_, $duration] = Benchmark::value(function () {
+                $directions = [];
+    
+                $this->comment('Start corutine and async parsers');
+                Coroutine\run(function () use (&$directions) {
+                    $parsers = [
+                        BinanceParser::class,
+                        BitgetParser::class,
+                        GarantexParser::class,
+                        HuobiParser::class,
+                        OkxParser::class,
+                    ];
+            
+                    foreach ($parsers as $parserClass) {        
+                        Coroutine::create(function () use ($parserClass, &$directions) {
+                            $directions[] = (new $parserClass)->handle();
+                        });
+                    }
+                });
+    
+                $this->comment('Prepare directions');
+                $directions = Arr::flatten($directions, 1);
+                $directions = $this->filterNullPrice($directions);
+                $directions = $this->castCurrencyNames($directions);
+    
+                $this->comment('Save stockmarkets');
+                $this->saveStockMarkets($directions, 500);
+                
+                $this->comment('Save currencies');
+                $this->saveCurrencies($directions, 500);
+                
+                $this->comment('Remove old directions');
+                $this->clearOldDirections();
+                
+                $this->comment('Directions saved');
+                $this->saveDirections($directions, 500);
+    
+                // Cache::delete('bundles');
             });
 
-            $this->info('Prepare directions');
-            $directions = Arr::flatten($directions, 1);
-            $directions = $this->filterNullPrice($directions);
-            $directions = $this->castCurrencyNames($directions);
-
-            $this->info('Save stockmarkets');
-            $this->saveStockMarkets($directions, 500);
-            
-            $this->info('Save currencies');
-            $this->saveCurrencies($directions, 500);
-            
-            $this->info('Remove old directions');
-            $this->clearOldDirections();
-            
-            $this->info('Save new directions');
-            $this->saveDirections($directions, 500);
-
-            // Cache::set('bundles', null);
-        });
+            $this->info("\nDirections updated. Working time: $duration\n", );
+        }
     }
 
     private function castCurrencyNames($directions) {

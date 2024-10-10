@@ -7,10 +7,13 @@ use App\Models\Currency;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\Response;
 
 class DirectionsUpdaterGarantex extends DirectionsUpdater
 {
-    protected string $stockMarketName = 'Binance';
+    protected string $stockMarketName = 'Garantex';
+    public ?string $marketsUrl = 'https://garantex.org/api/v2/markets';
+    public ?string $ratesUrl = 'https://garantex.org/rates';
 
     protected function createDirections($markets, $rates): array
     {
@@ -35,14 +38,14 @@ class DirectionsUpdaterGarantex extends DirectionsUpdater
         return $directions;
     }
 
-    protected function fetchMarkets()
+    protected function parseMarkets(array $markets)
     {
-        return Http::get('https://garantex.org/api/v2/markets')->json();
+        return $markets;
     }
 
-    protected function fetchRates()
+    protected function parseRates(array $rates)
     {
-        return Http::get('https://garantex.org/rates')->json();
+        return $rates;
     }
 
     private function getRate($rates, $id)

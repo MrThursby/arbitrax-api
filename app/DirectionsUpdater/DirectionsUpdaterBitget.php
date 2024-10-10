@@ -7,19 +7,23 @@ use App\Models\Currency;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\Response;
 
 class DirectionsUpdaterBitget extends DirectionsUpdater
 {
     protected string $stockMarketName = 'Bitget';
 
-    protected function fetchMarkets()
+    public ?string $marketsUrl  = 'https://api.bitget.com/api/v2/spot/public/symbols';
+    public ?string $ratesUrl    = 'https://api.bitget.com/api/v2/spot/market/tickers';
+
+    protected function parseMarkets(array $markets)
     {
-        return Http::get('https://api.bitget.com/api/v2/spot/public/symbols')->json()['data'];
+        return $markets['data'];
     }
 
-    protected function fetchRates()
+    protected function parseRates(array $rates)
     {
-        return Http::get('https://api.bitget.com/api/v2/spot/market/tickers')->json()['data'];
+        return $rates['data'];
     }
 
     protected function createDirections($markets, $rates): array
