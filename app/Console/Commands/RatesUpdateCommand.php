@@ -64,7 +64,7 @@ class RatesUpdateCommand extends Command
                 $this->comment('Saved directions');
                 $this->saveDirections($directions, $this->option('chunk'));
     
-                // Cache::delete('bundles');
+                Cache::delete('bundles');
 
                 unset($directions);
                 gc_collect_cycles();
