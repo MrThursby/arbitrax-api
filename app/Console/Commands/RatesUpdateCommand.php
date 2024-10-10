@@ -27,7 +27,7 @@ class RatesUpdateCommand extends Command
     public function handle()
     {
         while (true) {
-            [$_, $duration] = Benchmark::value(function () {
+            [, $duration] = Benchmark::value(function () {
                 $directions = [];
     
                 $this->comment('Start corutine and async parsers');

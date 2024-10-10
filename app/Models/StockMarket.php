@@ -17,9 +17,4 @@ class StockMarket extends Model
         'refetched_at' => 'datetime',
         'created_at' => 'datetime',
     ];
-
-    // protected function casts(): array
-    // {
-    //     return [ 'refetched_at' => 'datetime' ];
-    // }
 }
