@@ -49,7 +49,7 @@ class RatesUpdateCommand extends Command
     
                 $this->comment('Prepare directions');
                 $directions = Arr::flatten($directions, 1);
-                $directions = $this->filterNullPrice($directions);
+                $directions = $this->filterNotInterestingDirections($directions);
                 $directions = $this->castCurrencyNames($directions);
     
                 $this->comment('Save stockmarkets');
@@ -149,9 +149,14 @@ class RatesUpdateCommand extends Command
         return true;
     }
 
-    private function filterNullPrice($directions) {
-        return array_values(
-            array_filter($directions, fn ($direction) => $direction['buy_price'] != 0 && $direction['sell_price'] != 0)
-        );
+    private function filterNotInterestingDirections($directions) {
+        $directions = array_filter($directions, function ($direction) {
+            if ($direction['buy_price'] == 0 && $direction['sell_price'] == 0) return false;
+            if (in_array(['RUB', 'USDT', 'EUR'], $direction)) return false;
+
+            return true;
+        });
+
+        return array_values($directions);
     }
 }

@@ -12,4 +12,19 @@ class Currency extends Model
 
     // protected $connection = 'mongodb';
     protected $guarded = [];
+
+    public function askDirections() {
+        return $this->hasMany(Direction::class, 'ask_currency_id');
+    }
+
+    public function bidDirections() {
+        return $this->hasMany(Direction::class, 'bid_currency_id');
+    }
+
+    public function directions()
+    {
+        return Direction::where('ask_currency_id', $this->id)
+            ->orWhere('bid_currency_id', $this->id)
+            ->get();
+    }
 }
