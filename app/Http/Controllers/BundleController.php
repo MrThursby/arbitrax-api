@@ -26,7 +26,7 @@ class BundleController extends Controller
         $bundlesWithRelations = $this->createBundlesWithRelations($bundles, $directionsWithRelations)
             ->sortByDesc('spread')->values();
 
-        Cache::set('bundles', $bundlesWithRelations);
+        // Cache::set('bundles', $bundlesWithRelations);
 
         return $bundlesWithRelations;
     }
