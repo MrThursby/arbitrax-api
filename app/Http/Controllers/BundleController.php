@@ -18,13 +18,15 @@ class BundleController extends Controller
         $bundles = $this->groupDirections($directions)
                         // ->filter(fn($item) => $item->count() >= 2)
                         ->flatMap(fn($item) => $this->createBundles($item))
-                        ->filter(fn($direction) => $direction != null && $direction['spread'] >= 0);
+                        ->filter(fn($direction) => $direction != null);
 
         $directionIds = $this->getDirectionIds($bundles);
         $directionsWithRelations = $this->loadDirectionRelations($directionIds);
 
         $bundlesWithRelations = $this->createBundlesWithRelations($bundles, $directionsWithRelations)
-            ->sortByDesc('spread')->values();
+            ->filter(fn($bundle) => $bundle['spread'] >= 0.01 && $bundle['spread'] < 50)
+            ->sortByDesc('spread')
+            ->values();
 
         Cache::set('bundles', $bundlesWithRelations);
 
