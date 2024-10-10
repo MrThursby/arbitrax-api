@@ -21,7 +21,7 @@ use Swoole\Coroutine\WaitGroup;
 
 class RatesUpdateCommand extends Command
 {
-    protected $signature = 'rates:update {--once}';
+    protected $signature = 'rates:update {--once} {--chunk=500}';
     protected $description = 'Refetch rates from stock markets';
     
     private $parsers = [
@@ -53,16 +53,16 @@ class RatesUpdateCommand extends Command
                 $directions = $this->castCurrencyNames($directions);
     
                 $this->comment('Save stockmarkets');
-                $this->saveStockMarkets($directions, 3000);
+                $this->saveStockMarkets($directions, $this->option('chunk'));
                 
                 $this->comment('Save currencies');
-                $this->saveCurrencies($directions, 3000);
+                $this->saveCurrencies($directions, $this->option('chunk'));
                 
                 $this->comment('Remove old directions');
                 $this->clearOldDirections();
                 
                 $this->comment('Saved directions');
-                $this->saveDirections($directions, 3000);
+                $this->saveDirections($directions, $this->option('chunk'));
     
                 // Cache::delete('bundles');
 
