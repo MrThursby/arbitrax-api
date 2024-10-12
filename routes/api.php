@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\BundleController;
 use App\Http\Controllers\DirectionController;
+use App\Http\Controllers\StockMarketController;
 use App\Models\StockMarket;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,4 +31,5 @@ Route::get('clearmongo', function () {
 // Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::get('directions', [DirectionController::class, 'index']);
     Route::get('bundles', [BundleController::class, 'index']);
+    Route::get('stock-markets', [StockMarketController::class, 'index']);
 // });
