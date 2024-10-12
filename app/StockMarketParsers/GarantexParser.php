@@ -21,11 +21,11 @@ class GarantexParser extends StockMarketParser {
             if (!$rate) continue;
 
             $directions[] = [
-                'bid_currency' => $market['ask_unit'],
-                'ask_currency' => $market['bid_unit'],
+                'bid_currency' => $market['bid_unit'],
+                'ask_currency' => $market['ask_unit'],
                 'stock_market' => $this->name,
-                'buy_price'       => (float) $rate['buy'],
-                'sell_price'      => (float) $rate['sell'],
+                'buy_price'       => (float) $rate['sell'],
+                'sell_price'      => (float) $rate['buy'],
             ];
         }
 
