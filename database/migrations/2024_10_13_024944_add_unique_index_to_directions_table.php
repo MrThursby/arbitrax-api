@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('currencies', function (Blueprint $table) {
-            $table->string('name')->unique()->change();
+        Schema::table('directions', function (Blueprint $table) {
+            $table->unique(['bid_currency_id', 'ask_currency_id', 'stock_market_id'], 'bas_unique');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('currencies', function (Blueprint $table) {
-            $table->dropUnique(['name']);
+        Schema::table('directions', function (Blueprint $table) {
+            $table->dropUnique('bas_unique');
         });
     }
 };

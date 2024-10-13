@@ -11,8 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('currencies', function (Blueprint $table) {
-            $table->string('name')->unique()->change();
+        Schema::create('parser_rules', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('stock_market_id')->constrained();
+            
+            $table->string('ticker');
+            $table->foreignId('currency_id')->nullable()->constrained();
+
+            $table->timestamps();
         });
     }
 
@@ -21,8 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('currencies', function (Blueprint $table) {
-            $table->dropUnique(['name']);
-        });
+        Schema::dropIfExists('parser_rules');
     }
 };

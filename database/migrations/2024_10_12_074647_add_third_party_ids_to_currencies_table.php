@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('currencies', function (Blueprint $table) {
-            $table->string('name')->unique()->change();
+            $table->string("coingecko_id")->nullable()->unique();
+            $table->unsignedBigInteger("coinmarketcap_id")->nullable()->unique();
         });
     }
 
@@ -22,7 +23,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('currencies', function (Blueprint $table) {
-            $table->dropUnique(['name']);
+            $table->dropColumn("coingecko_id");
+            $table->dropColumn("coinmarketcap_id");
         });
     }
 };

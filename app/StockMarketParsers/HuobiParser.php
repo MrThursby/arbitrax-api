@@ -18,14 +18,25 @@ class HuobiParser extends StockMarketParser {
             $rate = $this->getRate($rates, $market['sc']);
 
             if (!$rate) continue;
+            
+            [$bid_currency_id, $ask_currency_id] = $this->getCurrencyIds($market['qcdn'], $market['bcdn']);
+            if (!$bid_currency_id || !$ask_currency_id) continue;
 
-            $directions[] = [
+            $direction = [
                 'bid_currency' => $market['qcdn'],
                 'ask_currency' => $market['bcdn'],
-                'stock_market' => $this->name,
+                
+                'bid_currency_id' => $bid_currency_id,
+                'ask_currency_id' => $ask_currency_id,
+
+                'stock_market_id' => $this->stock_market_id,
                 'buy_price'       => (float) $rate['ask'],
                 'sell_price'      => (float) $rate['bid'],
             ];
+
+            if (!$this->filterDirection($direction)) continue;
+
+            $directions []= $direction;
         }
 
         return $directions;

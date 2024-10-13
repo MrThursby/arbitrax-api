@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('currencies', function (Blueprint $table) {
-            $table->string('name')->unique()->change();
+            $table->dropUnique(['name']);
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('currencies', function (Blueprint $table) {
-            $table->dropUnique(['name']);
+            $table->string('name')->unique()->change();
         });
     }
 };

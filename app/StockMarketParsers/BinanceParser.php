@@ -14,17 +14,29 @@ class BinanceParser extends StockMarketParser {
     {
         [$markets, $rates] = $this->prepareDirectionsData();
 
-
         foreach ($markets as $market) {
             $rate = $this->getRate($rates, $market['symbol']);
 
-            $directions[] = [
+            if (!$rate) continue;
+            
+            [$bid_currency_id, $ask_currency_id] = $this->getCurrencyIds($market['quoteAsset'], $market['baseAsset']);
+            if (!$bid_currency_id || !$ask_currency_id) continue;
+            
+            $direction = [
                 'bid_currency' => $market['quoteAsset'],
                 'ask_currency' => $market['baseAsset'],
-                'stock_market' => $this->name,
+                
+                'bid_currency_id' => $bid_currency_id,
+                'ask_currency_id' => $ask_currency_id,
+                
+                'stock_market_id' => $this->stock_market_id,
                 'buy_price'       => (float) $rate['askPrice'],
                 'sell_price'      => (float) $rate['bidPrice'],
             ];
+
+            if (!$this->filterDirection($direction)) continue;
+            
+            $directions []= $direction;
         }
 
         return $directions;

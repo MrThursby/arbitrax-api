@@ -18,14 +18,25 @@ class BitgetParser extends StockMarketParser {
             $rate = $this->getRate($rates, $market['symbol']);
 
             if (!$rate) continue;
+            
+            [$bid_currency_id, $ask_currency_id] = $this->getCurrencyIds($market['quoteCoin'], $market['baseCoin']);
+            if (!$bid_currency_id || !$ask_currency_id) continue;
 
-            $directions[] = [
+            $direction = [
                 'bid_currency' => $market['quoteCoin'],
                 'ask_currency' => $market['baseCoin'],
-                'stock_market' => $this->name,
+                
+                'bid_currency_id' => $bid_currency_id,
+                'ask_currency_id' => $ask_currency_id,
+
+                'stock_market_id' => $this->stock_market_id,
                 'buy_price'       => (float) $rate['askPr'],
                 'sell_price'      => (float) $rate['bidPr'],
             ];
+
+            if (!$this->filterDirection($direction)) continue;
+            
+            $directions []= $direction;
         }
 
         return $directions;

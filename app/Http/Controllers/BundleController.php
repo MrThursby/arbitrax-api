@@ -10,9 +10,9 @@ class BundleController extends Controller
 {
     public function index()
     {
-        if ($bundles = Cache::get('bundles')) {
-            return $bundles;
-        } 
+        // if ($bundles = Cache::get('bundles')) {
+        //     return $bundles;
+        // } 
         
         $directions = Direction::query()->get();
         $bundles = $this->groupDirections($directions)
@@ -24,7 +24,7 @@ class BundleController extends Controller
         $directionsWithRelations = $this->loadDirectionRelations($directionIds);
 
         $bundlesWithRelations = $this->createBundlesWithRelations($bundles, $directionsWithRelations)
-            ->filter(fn($bundle) => $bundle['spread'] >= 0.01 && $bundle['spread'] < 50)
+            ->filter(fn($bundle) => $bundle['spread'] >= 0.01)
             ->sortByDesc('spread')
             ->values();
 

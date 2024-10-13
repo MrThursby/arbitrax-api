@@ -2,9 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Currency;
 use App\Models\Direction;
-use App\Models\StockMarket;
 use App\StockMarketParsers\BinanceParser;
 use App\StockMarketParsers\BitgetParser;
 use App\StockMarketParsers\GarantexParser;
@@ -14,153 +12,72 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Benchmark;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Swoole\Coroutine;
-use Swoole\Coroutine\WaitGroup;
-// use MongoDB\BSON\UTCDateTime;
 
 class RatesUpdateCommand extends Command
 {
-    protected $signature = 'rates:update {--once} {--chunk=500}';
+    protected $signature = 'rates:update {--chunk=500}';
     protected $description = 'Refetch rates from stock markets';
     
     private $parsers = [
         BinanceParser::class,
         BitgetParser::class,
-        GarantexParser::class,
+        // GarantexParser::class,
         HuobiParser::class,
         OkxParser::class,
     ];
 
     public function handle()
     {
-        do {
-            [, $duration] = Benchmark::value(function () {
-                $directions = [];
-    
-                $this->comment('Start corutine and async parsers');
-                Coroutine\run(function () use (&$directions) {            
-                    foreach ($this->parsers as $parserClass) {        
-                        Coroutine::create(function () use ($parserClass, &$directions) {
-                            $directions[] = (new $parserClass)->handle();
-                        });
-                    }
-                });
-    
-                $this->comment('Prepare directions');
-                $directions = Arr::flatten($directions, 1);
-                $directions = $this->castCurrencyNames($directions);
-                $directions = $this->filterNotInterestingDirections($directions);
-    
-                $this->comment('Save stockmarkets');
-                $this->saveStockMarkets($directions, $this->option('chunk'));
-                
-                $this->comment('Save currencies');
-                $this->saveCurrencies($directions, $this->option('chunk'));
-                
-                $this->comment('Remove old directions');
-                $this->clearOldDirections();
-                
-                $this->comment('Save directions');
-                $this->saveDirections($directions, $this->option('chunk'));
-    
-                Cache::delete('bundles');
-                Cache::delete('directions');
+        [, $duration] = Benchmark::value(function () {
+            $directions = [];
 
-                unset($directions);
-                gc_collect_cycles();
+            $this->comment("\nStart corutine and async parsers");
+
+            Coroutine\run(function () use (&$directions) {            
+                foreach ($this->parsers as $parserClass) {
+                    $directions[] = (new $parserClass)->handle();
+                }
             });
 
-            $this->info("\nDirections updated. Working time: $duration\n", );
-        } while (!$this->option('once'));
-    }
+            $this->comment('Prepare directions');
+            $directions = Arr::flatten($directions, 1);
 
-    private function castCurrencyNames($directions) {
-        foreach ($directions as &$direction) {
-            $direction['bid_currency'] = strtoupper($direction['bid_currency']);
-            $direction['ask_currency'] = strtoupper($direction['ask_currency']); 
-        }
+            $this->saveDirections($directions, $this->option('chunk'));
 
-        return $directions;
-    }
+            Coroutine\run(function () {
+                Cache::delete('bundles');
+                Cache::delete('directions');
+            });
 
-    private function saveStockMarkets($directions, $chink_size) {
-        $stockMarkets = Arr::pluck($directions, 'stock_market');
-        $stockMarkets = array_unique($stockMarkets);
-
-        $now = now()->toDateTime();
-        $stockMarkets = Arr::map($stockMarkets, fn ($stockMarket) => [ 
-            'name' => $stockMarket, 
-            'refetched_at' => $now, // new UTCDateTime(now()->getTimestamp() * 1000)
-        ]);
-        
-        $stockMarkets = array_values($stockMarkets);
-
-        DB::transaction(function () use ($stockMarkets, $chink_size) {
-            $chunks = array_chunk($stockMarkets, $chink_size);
-            foreach ($chunks as $chunk) StockMarket::query()->upsert($chunk, [ 'name' ], [ 'refetched_at' ]);
+            unset($directions);
+            gc_collect_cycles();
         });
 
-        return true;
-    }
-
-    private function saveCurrencies($directions, $chink_size) {
-        $bid_currencies = Arr::pluck($directions, 'bid_currency');
-        $ask_currencies = Arr::pluck($directions, 'ask_currency');
-
-        $currencies = array_unique(Arr::flatten([$bid_currencies, $ask_currencies]));
-        $currencies = Arr::map($currencies, fn ($currency) => [ 'name' => $currency ]);
-
-        $currencies = array_values($currencies);
-
-        DB::transaction(function () use ($currencies, $chink_size) {
-            $chunks = array_chunk($currencies, $chink_size);
-            foreach ($chunks as $chunk) Currency::query()->upsert($chunk, [ 'name' ]);
-        });
-
-        return true;
-    }
-
-    private function clearOldDirections() {
-        Direction::query()->delete();
+        $this->info("\nDirections updated. Working time: $duration", );
     }
 
     private function saveDirections($directions, $chink_size) {
-        $currencies = Currency::query()->get()->keyBy('name');
-        $stockMarkets = StockMarket::query()->get()->keyBy('name');
+        $now = now();
 
-        $directions = Arr::map($directions, function ($direction) use ($currencies, $stockMarkets) {
+        $directions = Arr::map($directions, function ($direction) use ($now) {
             $d = [
-                'bid_currency_id' => $currencies[$direction['bid_currency']]->id,
-                'ask_currency_id' => $currencies[$direction['ask_currency']]->id,
-                'stock_market_id' => $stockMarkets[$direction['stock_market']]->id,
+                'bid_currency_id' => $direction['bid_currency_id'],
+                'ask_currency_id' => $direction['ask_currency_id'],
+                'stock_market_id' => $direction['stock_market_id'],
                 'buy_price'       => $direction['buy_price'],
                 'sell_price'      => $direction['sell_price'],
+                'updated_at'      => $now,
             ];
 
             return $d;
         });
 
-        DB::transaction(function () use ($directions, $chink_size) {
-            $chunks = array_chunk($directions, $chink_size);
-            foreach ($chunks as $chunk) Direction::query()->insert($chunk, ['stock_market_id', 'ask_currency_id', 'bid_currency_id']);
-        });
-
-        return true;
-    }
-
-    private function filterNotInterestingDirections($directions) {
-        $directions = array_filter($directions, function ($direction) {
-            if ($direction['buy_price'] == 0 && $direction['sell_price'] == 0) return false;
-            
-            if (
-                in_array($direction['bid_currency'], ['RUB', 'USD', 'EUR', 'KGS'])
-                || in_array($direction['ask_currency'], ['RUB', 'USD', 'EUR', 'KGS'])
-            ) return false;
-
-            return true;
-        });
-
-        return array_values($directions);
+        $chunks = array_chunk($directions, $chink_size);
+        foreach ($chunks as $chunk) Direction::query()->upsert($chunk, ['stock_market_id', 'ask_currency_id', 'bid_currency_id']);
+        
+        Direction::query()
+            ->where('updated_at', '<', $now)
+            ->delete();
     }
 }

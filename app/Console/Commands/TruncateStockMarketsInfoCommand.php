@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Currency;
 use App\Models\Direction;
+use App\Models\ParserRule;
 use App\Models\StockMarket;
 use Illuminate\Console\Command;
 
@@ -28,6 +29,7 @@ class TruncateStockMarketsInfoCommand extends Command
      */
     public function handle()
     {
+        ParserRule::query()->delete();
         StockMarket::query()->delete();
         Direction::query()->delete();
         Currency::query()->delete();
